@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爱心便签</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow: hidden;
+            font-family: 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+            position: relative;
+        }
+
+        .note {
+            position: absolute;
+            width: 130px;
+            height: 55px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            opacity: 0;
+            transform: scale(0.5);
+            animation: popIn 0.4s ease-out forwards;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            padding: 8px;
+            line-height: 1.3;
+            user-select: none;
+        }
+
+        .note:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                opacity: 0.98;
+                transform: scale(1);
+            }
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .start-btn {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .start-btn:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.6);
+        }
+
+        .start-btn.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <button class="start-btn" id="startBtn">点击开始 💕</button>
+    <div class="hint">按 ESC 或 Q 键退出 | 点击任意位置退出</div>
+
+    <script>
+        // 配置参数
+        const DESIRED_POINTS = 110;
+        const WINDOW_W = 130;
+        const WINDOW_H = 55;
+        const STEP_MS = 70;
+
+        const MESSAGES = [
+            "保持好心情", "我想你了", "保持微笑", "天凉了，多穿衣服", "别熬夜",
+            "记得吃水果", "每天都要元气满满", "I LOVE YOU", "别太累", "要开心哦", "照顾好自己"
+        ];
+
+        const COLORS = [
+            "#FFB3C6", "#FFD6A5", "#FDFFB6", "#CAFFBF",
+            "#9BF6FF", "#A0C4FF", "#BDB2FF", "#FFC6FF",
+            "#FFE5EC", "#E0FBFC", "#E8EDDF", "#FDE2E4",
+        ];
+
+        // 生成心形曲线点
+        function generateHeartPoints(numPoints, screenW, screenH) {
+            const raw = [];
+            
+            // 经典心形线方程
+            for (let i = 0; i < numPoints; i++) {
+                const t = (i / numPoints) * 2 * Math.PI;
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                raw.push([x * 1.2, y]);
+            }
+
+            const minX = Math.min(...raw.map(p => p[0]));
+            const maxX = Math.max(...raw.map(p => p[0]));
+            const minY = Math.min(...raw.map(p => p[1]));
+            const maxY = Math.max(...raw.map(p => p[1]));
+
+            const rawW = maxX - minX;
+            const rawH = maxY - minY;
+
+            const topGutter = 45;
+            const bottomGutter = 45;
+            const sideGutter = 45;
+
+            const usableW = Math.max(1, screenW - 2 * sideGutter - WINDOW_W);
+            const usableH = Math.max(1, screenH - topGutter - bottomGutter - WINDOW_H);
+
+            const scale = Math.min(usableW / rawW, usableH / rawH) * 0.85;
+
+            const centerX = screenW / 2;
+            const centerY = screenH * 0.45;
+
+            const rawCx = (minX + maxX) / 2;
+            const rawCy = (minY + maxY) / 2;
+
+            const points = [];
+            for (const [rx, ry] of raw) {
+                let x = Math.floor(centerX + (rx - rawCx) * scale);
+                let y = Math.floor(centerY - (ry - rawCy) * scale);
+
+                const minXc = sideGutter + WINDOW_W / 2;
+                const maxXc = screenW - sideGutter - WINDOW_W / 2;
+                const minYc = topGutter + WINDOW_H / 2;
+                const maxYc = screenH - bottomGutter - WINDOW_H / 2;
+
+                x = Math.max(minXc, Math.min(maxXc, x));
+                y = Math.max(minYc, Math.min(maxYc, y));
+
+                points.push([x, y]);
+            }
+
+            return points;
+        }
+
+        // 创建便签
+        function createNote(x, y, text, bg) {
+            const note = document.createElement('div');
+            note.className = 'note';
+            note.style.left = `${x - WINDOW_W / 2}px`;
+            note.style.top = `${y - WINDOW_H / 2}px`;
+            note.style.backgroundColor = bg;
+            note.textContent = text;
+            document.body.appendChild(note);
+            return note;
+        }
+
+        // 打乱数组
+        function shuffle(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // 随机选择
+        function randomChoice(array) {
+            return array[Math.floor(Math.random() * array.length)];
+        }
+
+        // 主程序
+        function run() {
+            const startBtn = document.getElementById('startBtn');
+            startBtn.classList.add('hidden');
+
+            const screenW = window.innerWidth;
+            const screenH = window.innerHeight;
+            const points = generateHeartPoints(DESIRED_POINTS, screenW, screenH);
+            const shuffledColors = shuffle(COLORS);
+
+            let idx = 0;
+            const notes = [];
+
+            function step() {
+                if (idx >= points.length) return;
+
+                const [x, y] = points[idx];
+                const bg = shuffledColors[idx % shuffledColors.length];
+                const text = randomChoice(MESSAGES);
+
+                const note = createNote(x, y, text, bg);
+                notes.push(note);
+
+                idx++;
+                setTimeout(step, STEP_MS);
+            }
+
+            step();
+        }
+
+        // 退出程序
+        function quitAll() {
+            const notes = document.querySelectorAll('.note');
+            notes.forEach(note => {
+                note.style.animation = 'none';
+                note.style.opacity = '0';
+                note.style.transform = 'scale(0.5)';
+                note.style.transition = 'all 0.3s ease';
+            });
+            
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <div style="
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        color: white;
+                        font-size: 24px;
+                        text-align: center;
+                    ">
+                        💕 再见！愿你每天都开心 💕
+                    </div>
+                `;
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }, 300);
+        }
+
+        // 事件绑定
+        document.getElementById('startBtn').addEventListener('click', run);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'q' || e.key === 'Q') {
+                quitAll();
+            }
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.id !== 'startBtn') {
+                quitAll();
+            }
+        });
+    </script>
+</body>
+</html>
